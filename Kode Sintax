@@ -9,6 +9,84 @@ library(factoextra)
 library(cluster)
 library(dplyr)
 library(tidyverse)
+
+#Contoh Kode Sintax Membangkitkan Data dari salah satu skenario (100 jumlah amatan, pencilan 0%, Jarak antar pusat gerombol sedang, dan 3 gerombol saling pisah)
+
+# Mengimpor library yang diperlukan
+library(mvtnorm)
+library(dplyr)
+library(ggplot2)
+library(cluster)
+library(caret)
+
+# Fungsi untuk menghasilkan data gaussian dengan outlier
+generateGaussianData <- function(n, center, sigma, label, outlier_percentage = 0.0) {
+  data = rmvnorm(n, mean = center, sigma = sigma)
+  data = data.frame(data)
+  names(data) = c("x", "y", "z")
+  data = data %>% mutate(class = factor(label))
+
+  # Introduce outliers in var1
+  outlier_index = sample(1:n, size = round(outlier_percentage * n))
+  data$x[outlier_index] = data$x[outlier_index] + rnorm(length(outlier_index), mean = 0, sd = 0)
+  data$y[outlier_index] = data$y[outlier_index]
+  data$z[outlier_index] = data$z[outlier_index]
+  data
+}
+
+# Inisialisasi jumlah cluster
+k <- 3
+
+# Menghasilkan dan menyimpan data
+for (i in 1:100) {
+  # Cluster 1
+  n1 = 20
+  center1 = c(5, 2, 5)
+  sigma1 = matrix(c(1, 0, 0, 0, 1, 0, 0, 0, 1), nrow = 3)
+  data1 = generateGaussianData(n1, center1, sigma1, 1, outlier_percentage = 0.0)
+
+  # Cluster 2
+  n2 = 50
+  center2 = c(5, 7, 4)
+  sigma2 = matrix(c(1, 0, 0, 0, 1, 0, 0, 0, 1), nrow = 3)
+  data2 = generateGaussianData(n2, center2, sigma2, 2, outlier_percentage = 0.0)
+
+  # Cluster 3
+  n3 = 30
+  center3 = c(5, 7, 10)
+  sigma3 = matrix(c(1, 0, 0, 0, 1, 0, 0, 0, 1), nrow = 3)
+  data3 = generateGaussianData(n3, center3, sigma3, 3, outlier_percentage = 0.0)
+
+  # Gabungkan data dari semua cluster
+  data <- bind_rows(data1, data2, data3)
+  
+  # Simpan dataset ke dalam file CSV
+  write.csv(data, paste("data_1A6R", i, ".csv", sep=""), row.names = FALSE)
+}
+
+ Membaca dataset dari file CSV
+data_all <- lapply(1:100, function(i) read.csv(paste("data_1A6R", i, ".csv", sep="")))
+Menyimpan 100 hasil data itu
+data_all <- lapply(1:100, function(i) {
+  data <- read.csv(paste("data_", i, ".csv", sep=""))
+  write.csv(data, paste("data_", i, "_processed.csv", sep=""), row.names = FALSE)
+  return(data)
+})
+
+#3d hasil bangkitan
+ibrary(plotly)
+
+# Create 3D plot
+plot_3d <- plot_ly(data, x = ~x, y = ~y, z = ~z, color = ~class, type = "scatter3d", mode = "markers",
+                   marker = list(size = 5, opacity = 0.8)) %>%
+  layout(scene = list(xaxis = list(title = "X"),
+                      yaxis = list(title = "Y"),
+                      zaxis = list(title = "Z")))
+
+# Display plot
+plot_3d
+
+#visualisasi hasil analisis
 hasil_simulasi_tesis <- read_excel("Documents/S2 IPB/Tesis/hasil simulasi tesis.xlsx", 
                                    sheet = "Data yang diolah")
 str(hasil_simulasi_tesis)
