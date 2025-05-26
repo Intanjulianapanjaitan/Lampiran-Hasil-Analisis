@@ -1,0 +1,195 @@
+library(ggpubr)
+library(readxl)
+library(MVN)  
+library(car)  
+library(mvnormtest)  
+library(ggplot2)
+library(tibble)
+library(factoextra)
+library(cluster)
+library(dplyr)
+library(tidyverse)
+hasil_simulasi_tesis <- read_excel("Documents/S2 IPB/Tesis/hasil simulasi tesis.xlsx", 
+                                   sheet = "Data yang diolah")
+str(hasil_simulasi_tesis)
+data <- hasil_simulasi_tesis
+dataHub <- read_excel("Documents/S2 IPB/Tesis/hasil simulasi tesis.xlsx", 
+                      sheet = "Data yang diolah")
+#Jarak
+data$jarak <- as.factor(data$jarak)
+
+# Mengatur urutan level pencilan
+levels(data$jarak) <- c("dekat", "jauh", "Sedang")
+
+# Reshape data to long format
+library(tidyr)
+data_long <- gather(data, key = "method", value = "rasio", rasioCLARA, rasioFCM)
+data_akurasi <- gather(data, key = "method", value = "akurasi", akurasiCLARA, akurasiFCM)
+
+# Mengatur kembali urutan faktor setelah reshaping
+data_long$jarak <- factor(data_long$jarak, levels = c("dekat", "Sedang", "jauh"))
+data_akurasi$jarak <- factor(data_akurasi$jarak, levels = c("dekat", "Sedang", "jauh"))
+
+# Plot
+library(ggplot2)
+ggplot(data_long, aes(x = jarak, y = rasio, fill = method)) +
+  geom_boxplot(lwd = 1.2, outlier.stroke = 2) +  #mempertebal garis box plot
+  labs(x = "Jarak Antar Pusat Gerombol", y = "Rasio Simpangan Baku", title = "Perbandingan Rasio Simpangan Baku Setiap Level Pada Skenario Jarak") +
+  scale_fill_manual(name = "Metode", values = c("rasioCLARA" = "lightblue1", "rasioFCM" = "pink"), labels = c("rasioCLARA" ="CLARA", "rasioFCM" ="FCM"))+
+  theme_gray() +
+  theme(
+    plot.title = element_text(size = 25, face = "bold"),
+    axis.title = element_text(size = 35),
+    axis.text = element_text(size = 25),
+    legend.title = element_text(size = 35),
+    legend.text = element_text(size = 35),
+    strip.text = element_text(size = 30)  
+  )
+
+ggplot(data_akurasi, aes(x = jarak, y = akurasi, fill = method)) +
+  geom_boxplot(lwd = 1.2, outlier.stroke = 2) +  #mempertebal garis box plot
+  labs(x = "Jarak Antar Pusat Gerombol", y = "Akurasi Penggerombolan", title = "Perbandingan Akurasi Penggerombolan Setiap Level Pada Skenario Jarak") +
+  scale_fill_manual(name = "Metode", values = c("akurasiCLARA" = "lightblue1", "akurasiFCM" = "pink"), labels = c("akurasiCLARA" ="CLARA", "akurasiFCM" ="FCM"))+
+  theme_gray() +
+  theme(
+    plot.title = element_text(size = 25, face = "bold"),
+    axis.title = element_text(size = 35),
+    axis.text = element_text(size = 25),
+    legend.title = element_text(size = 35),
+    legend.text = element_text(size = 35),
+    strip.text = element_text(size = 30)  
+  )
+
+# Mengubah jumlah data dalam dataset menjadi numerik
+dataHub <- dataHub %>%
+  mutate(n = case_when(
+    n == "banyak" ~ 1000,
+    n == "sedang" ~ 500,
+    n == "sedikit" ~ 100,
+    TRUE ~ as.numeric(n)
+  ))
+
+# Menghitung nilai rata-rata untuk setiap kombinasi outlier dan n
+data_mean <- dataHub %>%
+  group_by(outlier, n) %>%
+  summarise(mean_rasioCLARA = mean(rasioCLARA),
+            mean_rasioFCM = mean(rasioFCM))
+
+# Mengurutkan kolom outlier sesuai urutan yang diinginkan
+data_mean$outlier <- factor(data_mean$outlier, levels = c("tidak ada pencilan", "pencilan sedang", "pencilan tinggi"))
+data_mean$n <- factor(data_mean$n, levels = c(1000, 500, 100))
+
+# Membuat plot garis dengan ggplot2
+ggplot(data_mean, aes(x = outlier)) +
+  geom_line(aes(y = mean_rasioCLARA, color = n, linetype = "Rasio CLARA", group = n), size = 2.8) +
+  geom_point(aes(y = mean_rasioCLARA, color = n), size = 6) +
+  geom_line(aes(y = mean_rasioFCM, linetype = "Rasio FCM", color = n, group = n), size = 2.8) +
+  geom_point(aes(y = mean_rasioFCM, color = n), size = 6) +
+  labs(x = "Persentase Pencilan", y = "Rasio Simpangan Baku", color = "Jumlah Amatan", linetype = "Nilai") +
+  scale_x_discrete(labels = c("tidak ada pencilan" = "0%", "pencilan sedang" = "10%", "pencilan tinggi" = "20%")) +
+  scale_color_manual(values = c("1000" = "red", "500" = "cornflowerblue", "100" = "navy")) +
+  scale_linetype_manual(name = "Nilai rasio simpangan baku", values = c("Rasio CLARA" = "solid", "Rasio FCM" = "dotted"), labels = c("CLARA", "FCM")) +
+  scale_shape_manual(values = c("CLARA" = 16, "FCM" = 17)) +
+  theme_minimal()+
+  theme(
+    plot.title = element_text(size = 35, face = "bold"),
+    axis.title = element_text(size = 35),
+    axis.text = element_text(size = 30),
+    legend.title = element_text(size = 35),
+    legend.text = element_text(size = 35),
+    strip.text = element_text(size = 20)
+  )
+
+# Membaca data dari file Excel
+dataHub <- read_excel("Documents/S2 IPB/Tesis/hasil simulasi tesis.xlsx", 
+                      sheet = "Data yang diolah")
+
+# Mengubah jumlah data dalam dataset menjadi numerik
+dataHub <- dataHub %>%
+  mutate(n = case_when(
+    n == "banyak" ~ 1000,
+    n == "sedang" ~ 500,
+    n == "sedikit" ~ 100,
+    TRUE ~ as.numeric(n)
+  ))
+
+# Menghitung nilai rata-rata untuk setiap kombinasi outlier dan n
+data_mean <- dataHub %>%
+  group_by(outlier, n) %>%
+  summarise(mean_akurasiCLARA = mean(akurasiCLARA),
+            mean_akurasiFCM = mean(akurasiFCM),
+            .groups = 'drop')
+
+# Mengurutkan kolom outlier sesuai urutan yang diinginkan
+data_mean$outlier <- factor(data_mean$outlier, levels = c("tidak ada pencilan", "pencilan sedang", "pencilan tinggi"))
+data_mean$n <- factor(data_mean$n, levels = c(1000, 500, 100))
+
+# Membuat plot garis dengan ggplot2
+ggplot(data_mean, aes(x = outlier)) +
+  geom_line(aes(y = mean_akurasiCLARA, color = n, linetype = "Akurasi CLARA", group = n), size=2.8) +
+  geom_point(aes(y = mean_akurasiCLARA, color = n), size=5) +
+  geom_line(aes(y = mean_akurasiFCM, linetype = "Akurasi FCM", color = n, group = n), size=2.8) +
+  geom_point(aes(y = mean_akurasiFCM, color = n), size=5) +
+  labs(x = "Persentase Pencilan", y = "Akurasi Penggerombolan", color = "Jumlah Amatan", linetype = "Variable") +
+  scale_x_discrete(labels = c("tidak ada pencilan" = "0%", "pencilan sedang" = "10%", "pencilan tinggi" = "20%")) +
+  scale_color_manual(values = c("1000" = "red", "500" = "cornflowerblue", "100" = "navy")) +
+  scale_linetype_manual(name = "Nilai Akurasi Penggerombolan", values = c("Akurasi CLARA" = "solid", "Akurasi FCM" = "dotted"), labels = c("Akurasi CLARA" ="CLARA", "Akurasi FCM" ="FCM")) +
+  theme_minimal()+
+  theme(
+    plot.title = element_text(size = 35, face = "bold"),
+    axis.title = element_text(size = 35),
+    axis.text = element_text(size = 30),
+    legend.title = element_text(size = 35),
+    legend.text = element_text(size = 35),
+    strip.text = element_text(size = 25)  # Ukuran teks untuk strip.text
+  )
+#uji Anova
+library(fda.usc)
+data1 <- hasil_simulasi_tesis
+# Menyiapkan data untuk fanova.hetero
+data_ratio_clara <- data.frame(
+  value = data1$ratio_CLARA,
+  outlier = data1$outlier,
+  n = data1$jumlah_data,
+  jarak = data1$jarak,
+  kondisi = data1$kondisi_pengerombolan
+)
+data_ratio_fcm <- data.frame(
+  value = data1$ratio_FCM,
+  outlier = data1$outlier,
+  n = data1$jumlah_data,
+  jarak = data1$jarak,
+  kondisi = data1$kondisi_pengerombolan
+)
+data_accuracy_clara <- data.frame(
+  value = data1$accuracy_CLARA,
+  outlier = data1$outlier,
+  n = data1$jumlah_data,
+  jarak = data1$jarak,
+  kondisi = data1$kondisi_pengerombolan
+)
+data_accuracy_fcm <- data.frame(
+  value = data1$accuracy_FCM,
+  outlier = data1$outlier,
+  n = data1$jumlah_data,
+  jarak = data1$jarak,
+  kondisi = data1$kondisi_pengerombolan
+)
+
+# ANOVA Heteroskedastisitas untuk rasioCLARA
+res_anova_ratio_clara <- fanova.hetero(object = data_ratio_clara, formula = value ~ as.factor(outlier) * as.factor(n) * as.factor(jarak) * as.factor(kondisi), pr = FALSE)
+# ANOVA Heteroskedastisitas untuk rasioFCM
+res_anova_ratio_fcm <- fanova.hetero(object = data_ratio_fcm, formula = value ~ as.factor(outlier) * as.factor(n) * as.factor(jarak) * as.factor(kondisi), pr = FALSE)
+# ANOVA Heteroskedastisitas untuk accuracyCLARA
+res_anova_accuracy_clara <- fanova.hetero(object = data_accuracy_clara, formula = value ~ as.factor(outlier) * as.factor(n) * as.factor(jarak) * as.factor(kondisi), pr = FALSE)
+# ANOVA Heteroskedastisitas untuk accuracyFCM
+res_anova_accuracy_fcm <- fanova.hetero(object = data_accuracy_fcm, formula = value ~ as.factor(outlier) * as.factor(n) * as.factor(jarak) * as.factor(kondisi), pr = FALSE)
+
+# Hasil ANOVA Heteroskedastisitas untuk rasioCLARA
+print(res_anova_ratio_clara)
+# Hasil ANOVA Heteroskedastisitas untuk rasioFCM
+print(res_anova_ratio_fcm)
+# Hasil ANOVA Heteroskedastisitas untuk accuracyCLARA
+print(res_anova_accuracy_clara)
+# Hasil ANOVA Heteroskedastisitas untuk accuracyFCM
+print(res_anova_accuracy_fcm)
